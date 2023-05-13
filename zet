@@ -102,19 +102,22 @@ x_create() {
     [[ -s "$dir/README.md" ]] || return 1
     line=$(head -1 "$dir/README.md" | sed 's/^# //')
     test -n "$line"
-    echo "Committing: $line"
-    # parse the tags of the zet we just made and try to add them to registry
-    readarray -t file_tags <<< "$(x_tags $datetime | tr -d '#' | tr ' ' '\n')"
-    for j in "${file_tags[@]}"; do
-        $(x_register $j)
-    done
-    sort -o "$(x_dir)/REGISTRY.md"{,}
-    $(x_push $line)
+    ## if public, commit repo
+    if [[ "$OPTION" == "$PUBLIC" ]]; then
+        echo "Committing: $line"
+        # parse the tags of the zet we just made and try to add them to registry
+        readarray -t file_tags <<< "$(x_tags $datetime | tr -d '#' | tr ' ' '\n')"
+        for j in "${file_tags[@]}"; do
+            $(x_register $j)
+        done
+        sort -o "$(x_dir)/REGISTRY.md"{,}
+        $(x_push $line)
+    fi
 }
 
 x_delete() {
 	if [[ ! "$#" == 1 ]]; then
-				echo "Requires exactly 1 argument."
+		echo "Requires exactly 1 argument."
         exit 1;
   fi
 	rm -rf "$(x_dir)/$*"
@@ -126,7 +129,7 @@ x_dir() {
 	mkdir -p "$dir" && echo "$dir"
 }
 
-## edits a zettel and pushes it to respective remote repo
+## edits a zettel and pushes it to public repo
 x_edit() {
     readarray -t directories <<< "$(x_all)"
     if [[ " ${directories[*]} " =~ " $1 " ]]; then
@@ -137,8 +140,10 @@ x_edit() {
         [[ -s "$dir/README.md" ]] || return 1
         line="$(head -1 "$dir/README.md" | sed 's/^# //') (Updated: $(date -u))"
         test -n "$line"
-        echo "Committing: $line"
-        $(x_push $line)
+        if [[ "$OPTION" == "$PUBLIC" ]]; then
+            echo "Committing: $line"
+            $(x_push $line)
+        fi
     fi
 }
 
