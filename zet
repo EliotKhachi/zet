@@ -103,17 +103,14 @@ x_create() {
     line=$(head -1 "$dir/README.md" | sed 's/^# //')
     test -n "$line"
     
-    ## if public, commit repo
-    if [[ "$OPTION" == "$PUBLIC" ]]; then
-        echo "Committing: $line"
-        # parse the tags of the zet we just made and try to add them to registry
-        readarray -t file_tags <<< "$(x_tags $datetime | tr -d '#' | tr ' ' '\n')"
-        for j in "${file_tags[@]}"; do
-            $(x_register $j)
-        done
-        sort -o "$(x_dir)/REGISTRY.md"{,}
-        $(x_push $line)
-    fi
+    echo "Committing: $line"
+    # parse the tags of the zet we just made and try to add them to registry
+    readarray -t file_tags <<< "$(x_tags $datetime | tr -d '#' | tr ' ' '\n')"
+    for j in "${file_tags[@]}"; do
+        $(x_register $j)
+    done
+    sort -o "$(x_dir)/REGISTRY.md"{,}
+    $(x_push $line)
 }
 
 x_delete() {
@@ -141,10 +138,8 @@ x_edit() {
         [[ -s "$dir/README.md" ]] || return 1
         line="$(head -1 "$dir/README.md" | sed 's/^# //') (Updated: $(date -u))"
         test -n "$line"
-        if [[ "$OPTION" == "$PUBLIC" ]]; then
-            echo "Committing: $line"
-            $(x_push $line)
-        fi
+        echo "Committing: $line"
+       $(x_push $line)
     fi
 }
 
@@ -214,15 +209,20 @@ x_pull() {
 
 ## pushes zettelkasten changes to respective remote repo
 x_push() {
-    local dir="$(x_dir)"
-    cd "$dir" &>/dev/null
-    git add -A "$dir" &>/dev/null
-    if [[ -n "$*" ]]; then
-        git commit -m "$*" &>/dev/null
+    if [[ "$OPTION" == "$PUBLIC" ]]; then
+        local dir="$(x_dir)"
+        cd "$dir" &>/dev/null
+        git add -A "$dir" &>/dev/null
+        if [[ -n "$*" ]]; then
+            git commit -m "$*" &>/dev/null
+        else
+            git commit -m "Updated Zettelkasten: $(date -u)" &>/dev/null
+        fi
+        git push
     else
-        git commit -m "Updated Zettelkasten: $(date -u)" &>/dev/null
+        echo 'echo Your private zettel was stashed away.'
     fi
-    git push
+
 }
 
 ## reads the contents of a given zettel
@@ -286,7 +286,7 @@ x_zk() {
 x_fix_commits() { 
     local dir="$(x_dir)"
     cd $dir
-    if [[ "$dir" == "$PUBLIC" ]]; then
+    # if [[ "$dir" == "$PUBLIC" ]]; then
         # loop through each directory in your zettelkasten
         for i in $(ls $dir | grep -v '.md'); do
             # parse dir name to store the commit date and time in the format: "2020.11.02 12:00"
@@ -299,9 +299,9 @@ x_fix_commits() {
             # echo $msg $date
             git commit -a --message="$msg" --date="$date"
         done
-    else 
-        echo "Recommit aborted. This is a private repository."
-    fi
+    # else 
+    #     echo "Recommit aborted. This is a private repository."
+    # fi
 }
 
 
