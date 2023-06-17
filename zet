@@ -15,6 +15,9 @@ OPTION=$PUBLIC
 BASE_DIR=$ZET_SCRIPT_DIR
 TWEEPY_CONF="$BASE_DIR/util/tweepy.conf"
 GIT_HOST="$GITHUB_URL/$(basename $OPTION)"
+ZET_IMAGES_BUCKET_NAME=$ZET_IMAGES_BUCKET_NAME
+ZET_IMAGES_BUCKET_REGION=$ZET_IMAGES_BUCKET_REGION
+
 
 r='\e[31m' # red
 g='\e[32m' # green
@@ -189,10 +192,10 @@ x_snip() {
         gnome-screenshot -ap -f $image_loc
     elif [[ "$1" == "rm" ]]; then
         # screenshot reMarkable tablet and save image
-        reSnap -s $REMARKABLE_IP -n -o $image_loc > /dev/null 2> /dev/null
+        reSnap -s $REMARKABLE_IP -n -o $image_loc &> /dev/null
     elif [[ "$1" == "select" ]]; then
         # pick an image or gif from your computer
-        cp $(zenity --file-selection --file-filter='Image files | *.png *.jpg *.gif') $image_loc
+        cp "$(zenity --file-selection --file-filter='Image files | *.png *.jpg *.gif')" $image_loc
     elif [[ "$1" == "ipad" ]]; then
         echo Not yet implemented...
     else
@@ -201,10 +204,10 @@ x_snip() {
     fi
 
     # upload image to s3
-    aws s3api put-object --bucket zettelimages --key $(basename $image_loc) --body $image_loc --content-type="image/png" > /dev/null
+    aws s3api put-object --bucket $ZET_IMAGES_BUCKET_NAME --key $(basename $image_loc) --body $image_loc --content-type="image/png" > /dev/null
 
     # echo link to the s3 object
-    echo "![image](https://s3.us-west-1.amazonaws.com/zettelimages/$(basename $image_loc))"
+    echo "![image](https://s3.$ZET_IMAGES_BUCKET_REGION.amazonaws.com/$ZET_IMAGES_BUCKET_NAME/$(basename $image_loc))"
 
 }
 
@@ -236,7 +239,7 @@ x_pull() {
 
 ## pushes zettelkasten changes to respective remote repo
 x_push() {
-    if [[ "$OPTION" == "$PUBLIC" ]]; then
+    # if [[ "$OPTION" == "$PUBLIC" ]]; then
         local dir="$(x_dir)"
         cd "$dir" &>/dev/null
         git add -A "$dir" &>/dev/null
@@ -246,9 +249,9 @@ x_push() {
             git commit -m "Updated Zettelkasten: $(date -u)" &>/dev/null
         fi
         git push
-    else
-        echo 'echo Your private zettel was stashed away.'
-    fi
+    # else
+    #    echo 'echo Your private zettel was stashed away.'
+    # fi
 
 }
 
