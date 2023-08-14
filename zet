@@ -105,6 +105,7 @@ x_create() {
     [[ -s "$dir/README.md" ]] || return 1
     line=$(head -1 "$dir/README.md" | sed 's/^# //')
     test -n "$line"
+    
     echo "Committing: $line"
     # parse the tags of the zet we just made and try to add them to registry
     readarray -t file_tags <<< "$(x_tags $datetime | tr -d '#' | tr ' ' '\n')"
@@ -305,6 +306,31 @@ x_zk() {
         day="${i:6:2}"
         echo -ne "$a$month/$day/$year$x - $y$msg$x ($p$i$x) $g$tags$x\n"
     done | less -r 
+}
+
+## recommit all zettels (makes a slight change to each zettel by adding a space at the end of the title)
+## PROGRESS
+    # Commit message are fixed to reflect zettel titles 
+    # Commit dates still aren't fixed
+x_fix_commits() { 
+    local dir="$(x_dir)"
+    cd $dir
+    # if [[ "$dir" == "$PUBLIC" ]]; then
+        # loop through each directory in your zettelkasten
+        for i in $(ls $dir | grep -v '.md'); do
+            # parse dir name to store the commit date and time in the format: "2020.11.02 12:00"
+            date=$(date -d "${i:0:8} ${i:8:2}:${i:10:2}" +"\"%Y.%m.%d %H:%M\"")
+
+            # parse 1st line of zettel (the title) to get commit message
+            readme="$dir/$i/README.md" # get zettel readme
+            msg=$(cat "$readme" | head -n 1 | sed 's/^#\s//') # get 1st line, contents after "#"
+            sed -i '1s/$/ /' $readme  ## make a slight change to the zettel (add a space at end of title)
+            # echo $msg $date
+            git commit -a --message="$msg" --date="$date"
+        done
+    # else 
+    #     echo "Recommit aborted. This is a private repository."
+    # fi
 }
 
 
