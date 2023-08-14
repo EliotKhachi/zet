@@ -171,7 +171,7 @@ x_isomin() { date -u +%Y%m%d%H%M ; }
 x_link() {
     readarray -t directories <<< "$(x_all)"
     if [[ " ${directories[*]} " =~ " $1 " ]]; then
-        link="[$1](../$1) - $(head -1 "$(x_dir)/$1/README.md" | sed 's/^# //')" 
+        link="[$(head -1 "$(x_dir)/$1/README.md" | sed 's/^# //')]($GIT_HOST/tree/main/$1/README.md)"
         echo "$link"
     fi
 }
