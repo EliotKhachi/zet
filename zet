@@ -38,7 +38,7 @@ z='\e[30m' # black
 ## returns all zettels from the session directory
 x_all() {
     local dir="$(x_dir)"
-    ls $dir | grep -Ev '.md|.json'
+    ls $dir | grep -Ev '.md$|.json$|.css$|.html$|.sh$'
 }
 
 ## configures twitter api for python
@@ -121,6 +121,8 @@ x_create() {
         x_zettel_mapping
         x_zettel_repository "$datetime"
     fi
+    
+    x_create_html $readme
 }
 
 x_delete() {
@@ -156,6 +158,8 @@ x_edit() {
             x_zettel_mapping
             x_zettel_repository "$datetime"
         fi
+
+        x_create_html $readme
     fi
 }
 
@@ -388,6 +392,42 @@ x_fix_commits() {
     # fi
 }
 
+x_create_html() {
+    if ! command -v pandoc &>/dev/null; then
+      echo "Error: pandoc is not installed. Please install pandoc before running this script."
+      exit 1
+    fi
+    
+    # Check if the correct number of arguments is provided
+    if [ "$#" -ne 1 ]; then
+      echo "Usage: $0 input.md"
+      exit 1
+    fi
+    
+    # Input Markdown file
+    input_file="$1"
+    
+    # Check if the input file exists
+    if [ ! -f "$input_file" ]; then
+      echo "Error in x_create_html: The input file '$input_file' does not exist."
+      exit 1
+    fi
+
+    title=$(head -n 1 "$input_file" | sed -n 's/^# //p')
+    
+    # Determine the output HTML file name (same directory, zettel-id.html))
+    output_file="$(basename $(pwd)).html"
+
+    # Convert Markdown to HTML using pandoc
+    pandoc -f gfm "$input_file" -o "$output_file" --template="$OPTION/custom_template.html" --metadata title="$title" 
+    
+    # Check if the conversion was successful
+    if [ $? -eq 0 ]; then
+      echo "Conversion successful. HTML file saved as $output_file"
+    else
+      echo "Error: HTML Conversion failed."
+    fi
+}
 
 # -----------------------------------------
 # ---- handling command line args ---------
