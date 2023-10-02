@@ -415,8 +415,8 @@ x_create_html() {
 
     title=$(head -n 1 "$input_file" | sed -n 's/^# //p')
     
-    # Determine the output HTML file name (same directory, zettel-id.html))
-    output_file="$(basename $(pwd)).html"
+    # Declare temporary file location for the output HTML file 
+    output_file="zettel.html"
 
     # Convert Markdown to HTML using pandoc
     pandoc -f gfm "$input_file" -o "$output_file" --template="$OPTION/custom_template.html" --metadata title="$title" 
@@ -427,6 +427,10 @@ x_create_html() {
     else
       echo "Error: HTML Conversion failed."
     fi
+
+    # Fix zettel links within html per website's zettel storage structure:
+    # zettelkasten/zettel-id.html
+    sed -i 's#<a href="\.\./\([0-9]\{12\}\)">#<a href="\../\1/zettel.html">#g' $output_file
 }
 
 # -----------------------------------------
