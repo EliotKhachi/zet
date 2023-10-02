@@ -179,12 +179,14 @@ x_show() {
     fi
     readarray -t directories <<< "$(x_all)"
     for i in "${directories[@]}"; do
-        readarray -t tags <<< "$(tail -1 $dir/$i/README.md | tr ' ' '\n')"
-        for j in "${tags[@]}"; do
-            if [[ $j == $tag ]]; then
-                echo -ne "$a$i$x - $y$(head -1 "$dir/$i/README.md" | sed 's/^# //')$x\n" 
-            fi
-        done
+        if [[ -d "$dir/$i" ]]; then
+            readarray -t tags <<< "$(tail -1 $dir/$i/README.md | tr ' ' '\n')"
+            for j in "${tags[@]}"; do
+                if [[ $j == $tag ]]; then
+                    echo -ne "$a$i$x - $y$(head -1 "$dir/$i/README.md" | sed 's/^# //')$x\n" 
+                fi
+            done
+        fi
     done 
 }
 
