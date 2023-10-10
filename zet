@@ -16,6 +16,7 @@ BASE_DIR=$ZET_SCRIPT_DIR
 TWEEPY_CONF="$BASE_DIR/util/tweepy.conf"
 GIT_HOST="$GITHUB_URL/$(basename $OPTION)"
 AWS_CREDS="$HOME/.aws/credentials"
+WEBSITE_LOCAL_DIR="$REPOS/eliotkhachi.dev/zettelkasten"
 WEBSITE_BUCKET_NAME=$WEBSITE_BUCKET_NAME
 WEBSITE_CLOUDFRONT_DISTRIBUTION_ID=$WEBSITE_CLOUDFRONT_DISTRIBUTION_ID
 
@@ -126,11 +127,26 @@ x_create() {
 }
 
 x_delete() {
-	if [[ ! "$#" == 1 ]]; then
-		echo "Requires exactly 1 argument."
-        exit 1;
-  fi
-	rm -rf "$(x_dir)/$*"
+    local dir="$(x_dir)"
+    # Loop through all arguments provided
+    for zettel in "$dir/$@"; do
+        # Delete if in github Zk
+        if [ -d "$zettel" ]; then
+	        rm -rf "$zettel"
+            echo "$(basename $zettel) has been deleted from $OPTION."
+        else
+            echo "$(basename $zettel) does not exist in $OPTION."
+            echo "Usage: $@ should be zettel ids."
+        fi
+        # 
+        if [ -f "$WEBSITE_LOCAL_DIR/$(basename $zettel).html" ]; then
+            rm -rf "$WEBSITE_LOCAL_DIR/$(basename $zettel).html"
+            echo "$(basename $zettel).html has been deleted from $WEBSITE_LOCAL_DIR."
+        else
+            echo "$(basename $zettel).html does not exist in $WEBSITE_LOCAL_DIR."
+            echo "Usage: $@ should be zettel ids."
+        fi
+    done
 }
 
 ##  sets the session directory to OPTION
@@ -198,7 +214,8 @@ x_isomin() { date -u +%Y%m%d%H%M ; }
 x_link() {
     readarray -t directories <<< "$(x_all)"
     if [[ " ${directories[*]} " =~ " $1 " ]]; then
-        link="[$(head -1 "$(x_dir)/$1/README.md" | sed 's/^# //')]($GIT_HOST/tree/main/$1)"
+        # link="[$(head -1 "$(x_dir)/$1/README.md" | sed 's/^# //')]($GIT_HOST/tree/main/$1)"
+        link="[$(head -1 "$(x_dir)/$1/README.md" | sed 's/^# //')](../$1)"
         echo "$link"
     fi
 }
@@ -395,19 +412,22 @@ x_fix_commits() {
 }
 
 x_create_html() {
+    # Check if pandoc is installed
     if ! command -v pandoc &>/dev/null; then
       echo "Error: pandoc is not installed. Please install pandoc before running this script."
       exit 1
     fi
-    
+
     # Check if the correct number of arguments is provided
     if [ "$#" -ne 1 ]; then
       echo "Usage: $0 input.md"
       exit 1
     fi
     
-    # Input Markdown file
+    # Declare variables
+    local dir="$(x_dir)"
     input_file="$1"
+    zettel_id=$(basename $(dirname $input_file))
     
     # Check if the input file exists
     if [ ! -f "$input_file" ]; then
@@ -415,10 +435,11 @@ x_create_html() {
       exit 1
     fi
 
+    # Get title from zettel
     title=$(head -n 1 "$input_file" | sed -n 's/^# //p')
     
-    # Declare temporary file location for the output HTML file 
-    output_file="zettel.html"
+    # Declare the file location for the output HTML file 
+    output_file="$WEBSITE_LOCAL_DIR/$zettel_id.html"
 
     # Convert Markdown to HTML using pandoc
     pandoc -f gfm "$input_file" -o "$output_file" --template="$OPTION/custom_template.html" --metadata title="$title" 
@@ -430,9 +451,8 @@ x_create_html() {
       echo "Error: HTML Conversion failed."
     fi
 
-    # Fix zettel links within html per website's zettel storage structure:
-    # zettelkasten/zettel-id.html
-    sed -i 's#<a href="\.\./\([0-9]\{12\}\)">#<a href="\../\1/zettel.html">#g' $output_file
+    # Fix zettel links in html files per $WEBSITE_LOCAL_DIR directory structure:
+    sed -i 's#<a href="\.\./\([0-9]\{12\}\)">#<a href="\./\1.html">#g' $output_file
 }
 
 # -----------------------------------------
