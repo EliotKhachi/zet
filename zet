@@ -9,6 +9,7 @@
 # -------------------------------------------------
 
 ZET_EDITOR=$EDITOR
+ZET_VIEWER=$VIEWER
 PUBLIC=$ZETDIR
 PRIVATE=$ZETDIR_PRIVATE
 OPTION=$PUBLIC
@@ -115,10 +116,11 @@ x_create() {
         x_zettel_mapping
         x_zettel_repository "$datetime"
     fi
-    
-    x_create_html "$readme"
+
+    if [[ "$OPTION" == "$PUBLIC" ]]; then
+        x_create_html "$readme"
+    fi
     x_update_zettels_json
-    # aws s3 cp "$WEBSITE_LOCAL_DIR/$datetime.html" "s3://$WEBSITE_BUCKET_NAME/"
 }
 
 x_delete() {
@@ -141,7 +143,13 @@ x_delete() {
             echo "$(basename $zettel).html does not exist in $WEBSITE_LOCAL_DIR/zettelkasten."
             echo "Usage: $@ should be zettel ids."
         fi
+
+        if [[ "$OPTION" == "$PUBLIC" ]]; then
+            aws s3 rm "s3://$WEBSITE_BUCKET_NAME/zettelkasten/$(basename $zettel).html"
+            aws cloudfront create-invalidation --distribution-id $WEBSITE_CLOUDFRONT_DISTRIBUTION_ID --paths="/zettelkasten/$(basename $zettel).html" &> /dev/null
+        fi 
     done
+    x_update_zettels_json
 }
 
 ##  sets the session directory to OPTION
@@ -170,11 +178,10 @@ x_edit() {
             x_zettel_repository "$datetime"
         fi
 
-        x_create_html "$readme"
+        if [[ "$OPTION" == "$PUBLIC" ]]; then
+            x_create_html "$readme"
+        fi
         x_update_zettels_json
-
-        # aws s3 cp "$WEBSITE_LOCAL_DIR/$datetime.html" "s3://$WEBSITE_BUCKET_NAME/"
-        # aws cloudfront create-invalidation "$WEBSITE_CLOUDFRONT_DISTRIBUTION_ID$
     else
         echo "Error: Could not find $1 in $OPTION"
     fi
@@ -222,8 +229,8 @@ x_link() {
 }
 
 x_snip() {
-    # init temporary image location
-    image_loc="/tmp/$(date | sed 's/ /_/g').png"
+    # init image location
+    image_loc="$WEBSITE_LOCAL_DIR/resources/zettel-images/$(date | sed 's/ /_/g').png"
 
     if [[ "$1" == "pc" ]]; then
         # screenshot desktop area and save image
@@ -241,10 +248,10 @@ x_snip() {
         exit 0
     fi
     # upload image to s3
-    aws s3api put-object --bucket $ZET_IMAGES_BUCKET_NAME --key $(basename $image_loc) --body $image_loc --content-type="image/png" > /dev/null
+    x_upload "resources/zettel-images/$(basename $image_loc)"
 
     # echo link to the s3 object
-    echo "![image](https://s3.$ZET_IMAGES_BUCKET_REGION.amazonaws.com/$ZET_IMAGES_BUCKET_NAME/$(basename $image_loc))"
+    echo "![image](https://www.eliotkhachi.dev/resources/zettel-images/$(basename $image_loc))"
 }
 
 ## post a zettelkasten link to twitter
@@ -275,7 +282,7 @@ x_pull() {
 
 ## pushes zettelkasten changes to respective remote repo
 x_push() {
-    # if [[ "$OPTION" == "$PUBLIC" ]]; then
+    if [[ "$OPTION" == "$PUBLIC" ]]; then
         local dir="$(x_dir)"
         cd "$dir" &>/dev/null
         git add -A "$dir" &>/dev/null
@@ -285,14 +292,19 @@ x_push() {
             git commit -m "Updated Zettelkasten: $(date -u)" &>/dev/null
         fi
         git push
-    }
+    fi
+}
 
 ## reads the contents of a given zettel
 x_read() {
-    readarray -t directories <<< "$(x_all)"
-    if [[ " ${directories[*]} " =~ " $1 " ]]; then
-		xdg-open $GIT_HOST/tree/main/$1 2> /dev/null
-        # firefox $OPTION/$1/README.md
+    if [[ "$OPTION" == "$PUBLIC" ]]; then
+        readarray -t directories <<< "$(x_all)"
+        if [[ " ${directories[*]} " =~ " $1 " ]]; then
+	    	xdg-open $GIT_HOST/tree/main/$1 2> /dev/null
+            # firefox $OPTION/$1/README.md
+        fi
+    else
+        view $OPTION/$1/README.md
     fi
 }
 
@@ -432,8 +444,10 @@ x_create_html() {
     # Declare the file location for the output HTML file 
     output_file="$WEBSITE_LOCAL_DIR/zettelkasten/$zettel_id.html"
 
+
     # Convert Markdown to HTML using pandoc
-    pandoc -f gfm "$input_file" -o "$output_file" --template="$BASE_DIR/custom_template.html" --metadata title="$title" 
+    pandoc -f gfm -t html -F mermaid-filter "$input_file" -o "$output_file" --template="$BASE_DIR/custom_template.html" --metadata title="$title" 
+    # pandoc "$input_file" -o "$output_file" --css=https://raw.githubusercontent.com/sindresorhus/github-markdown-css/main/github-markdown.css --template="$BASE_DIR/custom_template.html" --metadata title="$title" 
     
     # Check if the conversion was successful
     if [ $? -eq 0 ]; then
@@ -444,12 +458,35 @@ x_create_html() {
 
     # Fix zettel links in html files per $WEBSITE_LOCAL_DIR directory structure:
     sed -i 's#<a href="\.\./\([0-9]\{12\}\)">#<a href="\./\1.html">#g' $output_file
+
+    x_upload "zettelkasten/$zettel_id.html"
 }
 
+x_upload() {
+    if [[ "$OPTION" == "$PUBLIC" ]]; then
+        if [ "$#" -ne 1 ]; then
+            echo "Usage: $0 single_input_file"
+            exit 1
+        fi
+
+        file=$1
+    
+        # Check if the file exists
+        if [ ! -f "$WEBSITE_LOCAL_DIR/$file" ]; then
+          echo "Error uploading. The file '$file' does not exist."
+          exit 1
+        fi
+        
+        echo "Uploading $WEBSITE_LOCAL_DIR/$file..."
+        aws s3 cp --quiet $WEBSITE_LOCAL_DIR/$file s3://$WEBSITE_BUCKET_NAME/$file
+        aws cloudfront create-invalidation --distribution-id $WEBSITE_CLOUDFRONT_DISTRIBUTION_ID --paths="/$file" &> /dev/null
+    fi
+}
+    
 x_update_zettels_json() {
     echo "Updating zettels.json..."
     cd "$OPTION" || return
-
+    
     # remove current zettels.json
     rm -f zettels.json
 
@@ -508,9 +545,11 @@ x_update_zettels_json() {
 
     # Write the JSON output to a file
     echo "$json_output" > zettels.json
-    echo "$json_output" > "$WEBSITE_LOCAL_DIR/resources/zettel.json"
-    echo "JSON data saved to zettels.json"
+    echo "$json_output" > "$WEBSITE_LOCAL_DIR/resources/zettels.json"
+
+    x_upload "resources/zettels.json"
 }
+
 
 # -----------------------------------------
 # ---- handling command line args ---------
