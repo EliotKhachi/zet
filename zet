@@ -14,6 +14,8 @@ PRIVATE=$ZETDIR_PRIVATE
 OPTION=$PUBLIC
 BASE_DIR=$ZET
 GIT_HOST="$GITHUB_URL/$(basename $OPTION)"
+DEPLOY_REPO="${ZET_DEPLOY_REPO:-EliotKhachi/eliotkhachi.dev}"
+DEPLOY_WORKFLOW="${ZET_DEPLOY_WORKFLOW:-deploy.yml}"
 
 r='\e[31m' # red
 g='\e[32m' # green
@@ -164,6 +166,22 @@ x_delete() {
             echo "Usage: $@ should be zettel ids."
         fi
     done
+}
+
+## triggers the public site deploy workflow that rebuilds zettels from publicZk
+x_deploy() {
+    if [[ "$OPTION" != "$PUBLIC" ]]; then
+        echo "Deploy is only supported for the public zettelkasten."
+        return 1
+    fi
+
+    if ! command -v gh >/dev/null 2>&1; then
+        echo "GitHub CLI (gh) is required to deploy."
+        return 1
+    fi
+
+    echo "Triggering workflow $DEPLOY_WORKFLOW in $DEPLOY_REPO"
+    gh workflow run "$DEPLOY_WORKFLOW" -R "$DEPLOY_REPO"
 }
 
 ##  sets the session directory to OPTION
@@ -319,6 +337,7 @@ if [[ -n "$1" ]]; then
 	all                    :    lists all zettels
 	create <<zet>>         :    creates a new zettel
 	delete <<zet_id>>      :    deletes a zettel
+	deploy                 :    triggers the public site deploy workflow
 	dir                    :    gets session directory
 	edit <<zet_id>>        :    make changes to a zettel & push it
 	isomin                 :    returns the datetime as YYYYMMDDHHMM (UTC)

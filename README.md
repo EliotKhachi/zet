@@ -37,6 +37,7 @@ zet [OPTION] [COMMAND] [ARGS...]
 |   :-:                      |   -                                                            |
 |   all                      |   prints a list of all zettel ids in the zettelkasten          |
 |   create [ZETTEL_NAME]     |   creates a new zettel                                         |
+|   deploy                   |   triggers the public site deploy workflow                     |
 |   dir                      |   prints the session directory                                 |
 |   edit [ZETTEL_ID]         |   edits an already existing zettel                             |
 |   show [ZETTEL_TAG]        |   prints all zettels that have a matching tag                  |
@@ -57,3 +58,12 @@ zet [OPTION] [COMMAND] [ARGS...]
 |   -h, --help               |   shows usages of zet                                          |
 |   -p, --private            |   changes default session directory from PUBLIC to PRIVATE     |
 
+### DEPLOYING PUBLIC ZETTELS
+If your public notes repo is separate from the site repo, `zet deploy` can
+trigger a GitHub Actions workflow that rebuilds and publishes your public
+zettels. By default it runs `deploy.yml` in `EliotKhachi/eliotkhachi.dev`
+using `gh workflow run`.
+
+You can override these with environment variables:
+* `ZET_DEPLOY_REPO`
+* `ZET_DEPLOY_WORKFLOW`
