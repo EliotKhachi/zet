@@ -225,7 +225,7 @@ x_show() {
     readarray -t directories <<< "$(x_all)"
     for i in "${directories[@]}"; do
         if [[ -d "$dir/$i" ]]; then
-            readarray -t tags <<< "$(tail -1 $dir/$i/README.md | tr ' ' '\n')"
+            readarray -t tags <<< "$(x_tags "$i")"
             for j in "${tags[@]}"; do
                 if [[ $j == $tag ]]; then
                     echo -ne "$a$i$x - $y$(head -1 "$dir/$i/README.md" | sed 's/^# //')$x\n" 
@@ -292,7 +292,23 @@ x_tags(){
     local dir readme
     dir="$(x_dir)/$1"
     readme="$dir/README.md"
-    tail -1 $readme
+    awk '
+        /^## Tags[[:space:]]*$/ { in_tags=1; next }
+        in_tags && /^##[[:space:]]/ { exit }
+        in_tags && NF == 0 { exit }
+        in_tags {
+            for (i = 1; i <= NF; i++) {
+                if ($i ~ /^#[^[:space:]]+$/) print $i
+            }
+        }
+    ' "$readme"
+}
+
+## lists all unique tags in the current zettelkasten
+x_topics() {
+    while IFS= read -r zettel; do
+        x_tags "$zettel"
+    done < <(x_all) | sort -u
 }
 
 
@@ -348,6 +364,7 @@ if [[ -n "$1" ]]; then
 	read <<zet_id>>        :    prints the contents of a zettel
 	show <<zet_tag>        :    shows all zettels that have a matching tag
 	tags <<zet_id>>        :    returns all tags associated with zettel
+	topics                 :    lists all available tags
 	zk                     :    show all zettels in friendly format
         ------------------------------------------------------------------------
         options:

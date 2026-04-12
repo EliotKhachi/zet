@@ -49,6 +49,7 @@ zet [OPTION] [COMMAND] [ARGS...]
 |   read [ZETTEL_ID]         |   prints the contents of a zettel                              |
 |   register [ZETTEL_TAG]    |   adds a tag to the registry if it is not there                |
 |   tags [ZETTEL_ID]         |   prints all tags associated with a zettel                     |
+|   topics                   |   lists all available tags                                     |
 |   whitelist                |   modify the zettel whitelist (rendered on michaelarnold.io)   |
 |   zk                       |   show all zettels in friendly format                          |
 
