@@ -131,6 +131,23 @@ x_all() {
 
 
 ## creates a new zettel in the session directory & pushes to remote repo after wq
+## prints the contents of a given zettel, omitting the tags section
+x_cat() {
+    local readme="$(x_dir)/$1/README.md"
+    if [[ -z "$1" || ! -f "$readme" ]]; then
+        echo "Error: Could not find $1 in $OPTION"
+        return 1
+    fi
+    awk '
+        /^## Tags[[:space:]]*$/ { in_tags=1; next }
+        in_tags && /^##[[:space:]]/ { in_tags=0 }
+        in_tags && NF == 0 { in_tags=0; next }
+        in_tags { next }
+        NF == 0 { blanks++; next }
+        { while (blanks > 0) { print ""; blanks-- } print }
+    ' "$readme"
+}
+
 x_create() {
     if [[ "$#" -lt 1 ]]; then
         exit 1;
@@ -351,7 +368,8 @@ if [[ -n "$1" ]]; then
         commands:
         ------------------------------------------------------------------------
 	all                    :    lists all zettels
-	create <<zet>>         :    creates a new zettel
+	cat <<zet_id>>         :    prints a zettel's contents without tags
+	create <<zet>>        :    creates a new zettel
 	delete <<zet_id>>      :    deletes a zettel
 	deploy                 :    triggers the public site deploy workflow
 	dir                    :    gets session directory
